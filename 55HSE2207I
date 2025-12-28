@@ -17,54 +17,13 @@ local function decrypt(s)
     return table.concat(out)
 end
 
-local function notify(text)
-    pcall(function()
-        game:GetService("StarterGui"):SetCore("SendNotification",{
-            Title="［星云安全系统］",
-            Text=text,
-            Duration=5
-        })
-    end)
-end
-
-local function detectHook()
-    local env = getfenv and getfenv() or _G
-    return env.syn or env.http_request or env.request or env.fluxus
-end
-
 return function(enc)
     local url = decrypt(enc)
-
-    if detectHook() then
-        notify("抓包好玩吗？")
-        return
-    end
-
     local ok, src = pcall(function()
         return game:HttpGet(url)
     end)
-    if not ok or type(src)~="string" then
-        notify("获取远程脚本失败")
-        return
-    end
-
-    if type(loadstring)~="function" then
-        notify("loadstring 不可用")
-        return
-    end
-
-    local fn, err = loadstring(src)
-    if not fn then
-        notify("加载脚本失败: "..tostring(err))
-        return
-    end
-
-    local success, result = pcall(fn)
-    if success then
-        notify("脚本已加载")
-    else
-        notify("脚本执行失败: "..tostring(result))
-    end
-
-    return result
+    if not ok or type(src) ~= "string" then return end
+    local fn = loadstring(src)
+    if not fn then return end
+    return fn()
 end
