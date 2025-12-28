@@ -1,89 +1,53 @@
-local MAP = {
+local MAP={
 ["Ψ"]="://",[""]="==",["Ġ"]=":",[")"]="/",["}"]=".",["H"]="-",["û"]="_",[""]="?",
 ["Ω"]="&",["¦"]="#",["ă"]="@",["ç"]="+",[""]="~",["ā"]="!",[""]='"',["Ŧ"]="'",
 ["ĝ"]=",",["ř"]=";",["&"]="`",["Ŗ"]="|",["©"]="(",["@"]=")",["€"]="{",["Č"]="}",
 ["Ž"]="a",["q"]="b",["Ŀ"]="c",["g"]="d",["ĕ"]="e",["ë"]="f",["ŏ"]="g",["C"]="h",
 ["¡"]="i",["đ"]="j",["™"]="k",["ą"]="l",["ÿ"]="m",["Ń"]="n",["ø"]="o",["ē"]="p",
 ["Ì"]="q",["ŗ"]="r",["Û"]="s",["ŧ"]="t",[""]="u",["j"]="v",["O"]="w",["Ñ"]="x",
-["ő"]="y",["ü"]="z",["Â"]="A",["Ê"]="B",["Ë"]="C",["Ĳ"]="D",["Í"]="E",["Î"]="F",
-["Ï"]="G",["Ð"]="H",["Ŋ"]="I",["Ò"]="J",["Ó"]="K",["Ô"]="L",["Õ"]="M",["Ö"]="N",
-["×"]="O",["Ø"]="P",["Ù"]="Q",["Ú"]="R",["Ŝ"]="S",["Ü"]="T",["Ý"]="U",["Þ"]="V",
-["ß"]="W",["à"]="X",["á"]="Y",["â"]="Z",["v"]="0",["Ł"]="1",["±"]="2",["º"]="3",
-["p"]="4",[""]="5",["ƶ"]="6",["¤"]="7",["ƒ"]="8",["1"]="9"
+["ő"]="y",["ü"]="z"
 }
 
-local function detectHook()
-    local env = getfenv()
-    if rawget(env, "syn") then return true end
-    if rawget(env, "KRNL_LOADED") then return true end
-    if rawget(env, "is_synapse_function") then return true end
-    return false
+local function decrypt(s)
+    local out={}
+    for i=1,#s do
+        local c=s:sub(i,i)
+        out[#out+1]=MAP[c] or c
+    end
+    return table.concat(out)
 end
 
-local function warnUI()
+local function notify(t)
     pcall(function()
         game:GetService("StarterGui"):SetCore("SendNotification",{
             Title="［星云安全系统］",
-            Text="抓包好玩吗？",
+            Text=t,
             Duration=5
         })
     end)
 end
 
-local function decrypt(s)
-    local out = {}
-    for i = 1, #s do
-        local c = s:sub(i, i)
-        out[#out + 1] = MAP[c] or c
-    end
-    return table.concat(out)
+local function detectHook()
+    local e=(getfenv and getfenv()) or _G
+    return e.syn or e.http_request or e.request or e.fluxus
 end
 
 return function(enc)
+    local url=decrypt(enc)
+
+    local ok,src=pcall(function()
+        return game:HttpGet(url)
+    end)
+    if not ok or type(src)~="string" then return end
+
+    if type(loadstring)~="function" then return end
+
+    local fn=loadstring(src)
+    if not fn then return end
+
     if detectHook() then
-        warnUI()
-        return false
+        notify("抓包好玩吗？")
     end
 
-    local url = decrypt(enc)
-
-    local ok1, src = pcall(game.HttpGet, game, url)
-    if not ok1 then
-        warn("HttpGet failed:", src)
-        return false
-    end
-
-    local func, err = loadstring(src)
-    if not func then
-        warn("loadstring error:", err)
-        return false
-    end
-
-    local ok2, res = pcall(func)
-    if not ok2 then
-        warn("runtime error:", res)
-        return false
-    end
-
-    return true
-end    end
-    return table.concat(out)
-end
-
-return function(enc)
-    if detectHook() then
-        warnUI()
-        return
-    end
-
-    local url = decrypt(enc)
-    local src = game:HttpGet(url)
-    local func, err = loadstring(src)
-
-    if not func then
-        warn("loadstring error:", err)
-        return
-    end
-
-    return func()
+    return fn()
 end
