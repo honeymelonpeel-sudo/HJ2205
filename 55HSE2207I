@@ -9,48 +9,62 @@ local MAP={
 }
 
 local function decrypt(s)
-    local o={}
+    local out={}
     for i=1,#s do
         local c=s:sub(i,i)
-        o[#o+1]=MAP[c] or c
+        out[#out+1]=MAP[c] or c
     end
-    return table.concat(o)
+    return table.concat(out)
 end
 
-local function detectHook()
-    local e=(getfenv and getfenv()) or _G
-    return e.syn or e.http_request or e.request or e.fluxus
-end
-
-local function notify(t)
+local function notify(text)
     pcall(function()
         game:GetService("StarterGui"):SetCore("SendNotification",{
             Title="［星云安全系统］",
-            Text=t,
+            Text=text,
             Duration=5
         })
     end)
 end
 
-local function run(x)
-    local r=x
-    local i=0
-    while type(r)=="function" and i<5 do
-        r=r()
-        i=i+1
-    end
+local function detectHook()
+    local env = getfenv and getfenv() or _G
+    return env.syn or env.http_request or env.request or env.fluxus
 end
 
 return function(enc)
-    local url=decrypt(enc)
-    local ok,src=pcall(function()
-        return game:HttpGet(url)
-    end)
-    if not ok or type(src)~="string" then return end
-    local fn=loadstring(src)
-    if type(fn)~="function" then return end
+    local url = decrypt(enc)
+
     if detectHook() then
         notify("抓包好玩吗？")
+        return
     end
-    run(fn)
+
+    local ok, src = pcall(function()
+        return game:HttpGet(url)
+    end)
+    if not ok or type(src)~="string" then
+        notify("获取远程脚本失败")
+        return
+    end
+
+    if type(loadstring)~="function" then
+        notify("loadstring 不可用")
+        return
+    end
+
+    local fn, err = loadstring(src)
+    if not fn then
+        notify("加载脚本失败: "..tostring(err))
+        return
+    end
+
+    local success, result = pcall(fn)
+    if success then
+        notify("脚本已加载")
+    else
+        notify("脚本执行失败: "..tostring(result))
+    end
+
+    return result
 end
